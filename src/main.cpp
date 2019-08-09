@@ -1,6 +1,6 @@
 #include <Homie.h>
 #include <Timer.h>
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 
 #define MOISTUREPIN A0
 Timer t;
@@ -23,10 +23,15 @@ const int DEFAULT_DRY_VALUE = 830;      // What your dry sensor reads (in the ai
 const int DEFAULT_WET_VALUE = 380;      // What your wet sensor reads (totally saturated)
 
 // LED config
-#define PIN D1
-#define LED_COUNT 1
-Adafruit_NeoPixel led = Adafruit_NeoPixel(LED_COUNT, PIN, NEO_GRB + NEO_KHZ800);
-int numPixels = LED_COUNT;
+#define LED_PIN 4
+#define COLOR_ORDER GRB
+#define CHIPSET WS2812B
+#define NUM_LEDS 1
+#define BRIGHT 200
+#define DIM 10
+#define FRAMES_PER_SECOND 60
+CRGB leds[NUM_LEDS];
+
 bool DEFAULT_LED_STATUS = true;
 HomieSetting<bool> ledFeedbackSetting("ledFeedback", "show visual indication of soil condition");
 
@@ -44,8 +49,8 @@ void prepareSleep() {
 }
 
 void clearLed() {
-    led.Color(0,0,0); // black/off
-    led.show();
+    leds[0] = CRGB::Black;
+    FastLED.show();
 }
 
 void onHomieEvent(const HomieEvent& event) {
@@ -105,7 +110,7 @@ void loadDefaults()
     sleepDurationSetting.setDefaultValue(DEFAULT_SLEEP_INTERVAL).setValidator([](long candidate) {
         return candidate > 0;
     });
-    sleepDurationSetting.setDefaultValue(DEFAULT_WAIT_TO_SLEEP).setValidator([](unsigned long candidate) {
+    awakeDurationSetting.setDefaultValue(DEFAULT_WAIT_TO_SLEEP).setValidator([](unsigned long candidate) {
         return candidate >= DEFAULT_WAIT_TO_SLEEP;
     });
 }
@@ -141,8 +146,9 @@ void loopHandler()
             colorVal = "Green";
             if (ledStatus)
             {
-                led.Color(0, 255, 0); // Green
-                led.show();
+                leds[0] = CRGB::Green;
+                FastLED.setBrightness(DIM);
+                FastLED.show();
                 Homie.getLogger() << "Soil condition: perfect 💚" << endl;
             } else 
             {
@@ -154,8 +160,9 @@ void loopHandler()
             label = "DRY";
             colorVal = "Red";
             if (ledStatus) {
-                led.Color(255, 0, 0); // Red
-                led.show();
+                leds[0] = CRGB::Red;
+                FastLED.setBrightness(BRIGHT);
+                FastLED.show();
                 Homie.getLogger() << "Soil condition: dry 🔴" << endl;
             }
             else
@@ -168,8 +175,9 @@ void loopHandler()
             label = "WET";
             colorVal = "Blue";
             if (ledStatus) {
-                led.Color(0, 0, 255); // Blue
-                led.show();
+                leds[0] = CRGB::Blue;
+                FastLED.setBrightness(DIM);
+                FastLED.show();
                 Homie.getLogger() << "Soil condition: wet 🔵" << endl;
             }
             else
@@ -196,10 +204,11 @@ void setup()
     pinMode(MOISTUREPIN, INPUT);
 
     // ready to use LEDs
-    led.begin();
-    
+    FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+    FastLED.setBrightness(BRIGHT);
+
     // humblebrag
-    Homie_setFirmware("super-soil-moisture-sensor", "1.0.1");
+    Homie_setFirmware("super-soil-moisture-sensor", "1.0.4");
     
     // Telling homie about our custom functions
     Homie.setSetupFunction(setupHandler).setLoopFunction(loopHandler);
@@ -231,7 +240,7 @@ void loop() {
     Homie.loop();
 
     // if deepSleeping, we need to update the timer
-    // after awakeDuration has passed so that 
+    // after awakeDuration has passed so that
     // we have the opportunity to push updated config
     // to the device once it's awake
     if (deepSleep && millis() > awakeDuration)
