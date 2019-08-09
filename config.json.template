@@ -1,0 +1,13 @@
+{
+    ...
+    "settings": {
+        "highMoistureThreshold": 85,
+        "lowMoistureThreshold": 15,
+        "sensorDry": 830,
+        "sensorWet": 380,
+        "ledFeedback": true,
+        "deepSleep": false,
+        "sleepSeconds": 900,
+        "awakeSeconds": 20
+    }
+}

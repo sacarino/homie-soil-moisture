@@ -8,9 +8,10 @@ Timer t;
 // how often you want the sensor to update, in seconds
 const int DEFAULT_SLEEP_INTERVAL = 30;
 bool DEFAULT_DEEP_SLEEP = false;
-unsigned long wokeAt = 0;               // used to make sure we don't deep sleep TOO quickly
+unsigned long DEFAULT_WAIT_TO_SLEEP = 20UL;
 HomieSetting<long> sleepDurationSetting("sleepSeconds", "Seconds between moisture readings");
 HomieSetting<bool> deepSleepSetting("deepSleep", "Should the ESP8266 go into deep sleep?");
+HomieSetting<long> awakeDurationSetting("awakeSeconds", "Seconds to remain awake after deep sleeping");
 
 // placeholder for sensor value
 unsigned long lastMoistureSent = 0;
@@ -57,7 +58,7 @@ void onHomieEvent(const HomieEvent& event) {
         switch (event.type)
         {
         case HomieEventType::MQTT_READY:
-            Homie.getLogger() << "MQTT connected, preparing for deep sleep after 20s..." << endl;
+            Homie.getLogger() << "MQTT connected, preparing for deep sleep" << endl;
             t.after(100, prepareSleep);     // we don't increment the timer until after 20 seconds have passed via loop()
             break;
         case HomieEventType::READY_TO_SLEEP:
@@ -103,6 +104,9 @@ void loadDefaults()
     });
     sleepDurationSetting.setDefaultValue(DEFAULT_SLEEP_INTERVAL).setValidator([](long candidate) {
         return candidate > 0;
+    });
+    sleepDurationSetting.setDefaultValue(DEFAULT_WAIT_TO_SLEEP).setValidator([](unsigned long candidate) {
+        return candidate >= DEFAULT_WAIT_TO_SLEEP;
     });
 }
 
@@ -223,14 +227,14 @@ void setup()
 
 void loop() {
     bool deepSleep = deepSleepSetting.get();
+    unsigned long awakeDuration = awakeDurationSetting.get() * 1000UL;
     Homie.loop();
 
     // if deepSleeping, we need to update the timer
-
-    // we also wait until 20sec have passed so we have
-    // opportunity to push updated configuration(s) to
-    // the device after it wakes up from a deep sleep.
-    if (deepSleep && millis() > 20000UL)
+    // after awakeDuration has passed so that 
+    // we have the opportunity to push updated config
+    // to the device once it's awake
+    if (deepSleep && millis() > awakeDuration)
     {
         t.update();
     }

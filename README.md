@@ -27,7 +27,8 @@ This node uses a few custom settings in the Homie `config.json`:
         "sensorWet": 380,
         "ledFeedback": true,
         "deepSleep": false,
-        "sleepSeconds": 300
+        "sleepSeconds": 300,
+        "awakeSeconds": 20
     }
 }
 ```
@@ -53,3 +54,7 @@ If you're running on battery power, setting this true will trigger Homie's deep 
 #### Sleep Seconds
 
 If you're using deep sleep, this is how long it'll deep sleep for. Otherwise, this is how long it'll wait between soil condition reporting.
+
+#### Awake Seconds
+
+If you're using deep sleep, this is how long to wait until calling `deepSleep` again. This is used to make sure the board stays awake long enough for you to send updated config values to it. (Like, for instance, if you wanted to disable deep sleep!)
