@@ -8,6 +8,7 @@ Timer t;
 // how often you want the sensor to update, in seconds
 const int DEFAULT_SLEEP_INTERVAL = 30;
 bool DEFAULT_DEEP_SLEEP = false;
+unsigned long wokeAt = 0;               // used to make sure we don't deep sleep TOO quickly
 HomieSetting<long> sleepDurationSetting("sleepSeconds", "Seconds between moisture readings");
 HomieSetting<bool> deepSleepSetting("deepSleep", "Should the ESP8266 go into deep sleep?");
 
@@ -49,14 +50,15 @@ void clearLed() {
 void onHomieEvent(const HomieEvent& event) {
     bool deepSleep = deepSleepSetting.get();
 
+    // if we're deep sleeping AND we've been awake for at least 10 seconds
     if (deepSleep)
     {
-        const int duration = (sleepDurationSetting.get() * 1000UL);
+        const int duration = (sleepDurationSetting.get() * 1000000UL);
         switch (event.type)
         {
         case HomieEventType::MQTT_READY:
-            Homie.getLogger() << "MQTT connected, preparing for deep sleep after 100ms..." << endl;
-            t.after(100, prepareSleep);
+            Homie.getLogger() << "MQTT connected, preparing for deep sleep after 20s..." << endl;
+            t.after(100, prepareSleep);     // we don't increment the timer until after 20 seconds have passed via loop()
             break;
         case HomieEventType::READY_TO_SLEEP:
             Homie.getLogger() << "Ready to sleep" << endl;
@@ -193,7 +195,7 @@ void setup()
     led.begin();
     
     // humblebrag
-    Homie_setFirmware("super-soil-moisture-sensor", "1.0.0");
+    Homie_setFirmware("super-soil-moisture-sensor", "1.0.1");
     
     // Telling homie about our custom functions
     Homie.setSetupFunction(setupHandler).setLoopFunction(loopHandler);
@@ -207,12 +209,11 @@ void setup()
     // Setting default values for our settings
     loadDefaults();
     
-    // enabling deep sleep 
+    // so we can enable deep sleep 
     Homie.disableResetTrigger();
 
     // just in case you're on a shared port board
-    // Homie.disableLedFeedback();
-    Homie.setLedPin(PIN, HIGH);
+    Homie.disableLedFeedback();
 
     Homie.onEvent(onHomieEvent);
 
@@ -225,7 +226,11 @@ void loop() {
     Homie.loop();
 
     // if deepSleeping, we need to update the timer
-    if (deepSleep)
+
+    // we also wait until 20sec have passed so we have
+    // opportunity to push updated configuration(s) to
+    // the device after it wakes up from a deep sleep.
+    if (deepSleep && millis() > 20000UL)
     {
         t.update();
     }
