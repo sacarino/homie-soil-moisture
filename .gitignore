@@ -10,3 +10,4 @@ data/homie
 .vscode/extensions.json
 .vscode/settings.json
 test/
+config.json
